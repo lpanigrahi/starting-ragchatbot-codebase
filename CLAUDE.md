@@ -66,4 +66,3 @@ All configuration is centralized in `config.py` with these key settings:
 
 The system auto-loads documents from the `/docs` directory on startup and supports real-time querying with session-based conversation tracking.
 - make sure uv to manage all dependencies
-- don't run the server using ./run.sh , I will do it myself
