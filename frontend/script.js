@@ -5,7 +5,7 @@ const API_URL = '/api';
 let currentSessionId = null;
 
 // DOM elements
-let chatMessages, chatInput, sendButton, totalCourses, courseTitles;
+let chatMessages, chatInput, sendButton, totalCourses, courseTitles, newChatButton;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sendButton = document.getElementById('sendButton');
     totalCourses = document.getElementById('totalCourses');
     courseTitles = document.getElementById('courseTitles');
+    newChatButton = document.getElementById('newChatButton');
     
     setupEventListeners();
     createNewSession();
@@ -28,6 +29,9 @@ function setupEventListeners() {
     chatInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') sendMessage();
     });
+    
+    // New chat functionality
+    newChatButton.addEventListener('click', createNewSession);
     
     
     // Suggested questions
@@ -122,16 +126,43 @@ function addMessage(content, type, sources = null, isWelcome = false) {
     let html = `<div class="message-content">${displayContent}</div>`;
     
     if (sources && sources.length > 0) {
+        // Process sources to create clickable links
+        const processedSources = sources.map(source => {
+            // Check if source contains a lesson link (format: "Course Title - Lesson N|http://link")
+            const linkIndex = source.indexOf('|');
+            if (linkIndex !== -1) {
+                const sourceText = source.substring(0, linkIndex);
+                const lessonLink = source.substring(linkIndex + 1);
+                return `<span class="source-link" data-lesson-link="${lessonLink}">${sourceText}</span>`;
+            } else {
+                // No link available, display as plain text
+                return `<span class="source-text">${source}</span>`;
+            }
+        });
+        
         html += `
             <details class="sources-collapsible">
                 <summary class="sources-header">Sources</summary>
-                <div class="sources-content">${sources.join(', ')}</div>
+                <div class="sources-content">${processedSources.join(', ')}</div>
             </details>
         `;
     }
     
     messageDiv.innerHTML = html;
     chatMessages.appendChild(messageDiv);
+    
+    // Add click event listeners for source links
+    const sourceLinks = messageDiv.querySelectorAll('.source-link[data-lesson-link]');
+    sourceLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const lessonUrl = link.getAttribute('data-lesson-link');
+            if (lessonUrl) {
+                window.open(lessonUrl, '_blank');
+            }
+        });
+    });
+    
     chatMessages.scrollTop = chatMessages.scrollHeight;
     
     return messageId;
