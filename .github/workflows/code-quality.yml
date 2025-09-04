@@ -1,0 +1,37 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        version: "latest"
+    
+    - name: Set up Python
+      run: uv python install 3.11
+    
+    - name: Install dependencies
+      run: uv sync
+    
+    - name: Run Black (code formatting)
+      run: uv run black --check backend/ main.py
+    
+    - name: Run isort (import sorting)
+      run: uv run isort --check-only backend/ main.py
+    
+    - name: Run flake8 (linting)
+      run: uv run flake8 backend/ main.py
+    
+    - name: Run mypy (type checking)
+      run: uv run mypy backend/ main.py
