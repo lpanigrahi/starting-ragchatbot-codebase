@@ -3,6 +3,9 @@ import tempfile
 import shutil
 from unittest.mock import Mock, MagicMock, patch
 from typing import List, Dict, Any
+import asyncio
+from fastapi.testclient import TestClient
+from httpx import AsyncClient
 
 # Add backend to path for imports
 import sys
@@ -211,3 +214,148 @@ def sample_query_scenarios():
         "empty_query": "",
         "very_long_query": "What is Python programming and how do I get started with learning Python programming language for web development and data science applications in the modern software development ecosystem?"
     }
+
+# API Testing Fixtures
+
+@pytest.fixture
+def test_app():
+    """Create a test FastAPI application without static file mounting"""
+    from fastapi import FastAPI, HTTPException
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.middleware.trustedhost import TrustedHostMiddleware
+    from pydantic import BaseModel
+    from typing import List, Optional
+    
+    # Create test app
+    app = FastAPI(title="Course Materials RAG System - Test", root_path="")
+    
+    # Add middleware
+    app.add_middleware(
+        TrustedHostMiddleware,
+        allowed_hosts=["*"]
+    )
+    
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+    )
+    
+    # Mock RAG system for testing
+    mock_rag = Mock()
+    mock_rag.query.return_value = ("Test response", ["Test source"])
+    mock_rag.get_course_analytics.return_value = {
+        "total_courses": 2,
+        "course_titles": ["Python Programming Basics", "Advanced Python"]
+    }
+    mock_rag.session_manager.create_session.return_value = "test-session-123"
+    mock_rag.session_manager.clear_session.return_value = None
+    
+    # Request/Response models
+    class QueryRequest(BaseModel):
+        query: str
+        session_id: Optional[str] = None
+
+    class QueryResponse(BaseModel):
+        answer: str
+        sources: List[str]
+        session_id: str
+
+    class CourseStats(BaseModel):
+        total_courses: int
+        course_titles: List[str]
+    
+    # API endpoints
+    @app.post("/api/query", response_model=QueryResponse)
+    async def query_documents(request: QueryRequest):
+        try:
+            session_id = request.session_id or mock_rag.session_manager.create_session()
+            answer, sources = mock_rag.query(request.query, session_id)
+            return QueryResponse(
+                answer=answer,
+                sources=sources,
+                session_id=session_id
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.get("/api/courses", response_model=CourseStats)
+    async def get_course_stats():
+        try:
+            analytics = mock_rag.get_course_analytics()
+            return CourseStats(
+                total_courses=analytics["total_courses"],
+                course_titles=analytics["course_titles"]
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    @app.delete("/api/session/{session_id}")
+    async def clear_session(session_id: str):
+        try:
+            mock_rag.session_manager.clear_session(session_id)
+            return {"message": "Session cleared successfully"}
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    
+    @app.get("/")
+    async def root():
+        return {"message": "RAG System API is running"}
+    
+    # Store mock for access in tests
+    app.state.mock_rag = mock_rag
+    
+    return app
+
+@pytest.fixture
+def test_client(test_app):
+    """Create a test client for API testing"""
+    return TestClient(test_app)
+
+@pytest.fixture
+async def async_test_client(test_app):
+    """Create an async test client for API testing"""
+    async with AsyncClient(app=test_app, base_url="http://test") as client:
+        yield client
+
+@pytest.fixture
+def api_query_request():
+    """Sample API query request data"""
+    return {
+        "query": "What is Python programming?",
+        "session_id": "test-session-123"
+    }
+
+@pytest.fixture
+def api_query_request_no_session():
+    """Sample API query request without session ID"""
+    return {
+        "query": "What is Python programming?"
+    }
+
+@pytest.fixture
+def expected_query_response():
+    """Expected API query response"""
+    return {
+        "answer": "Test response",
+        "sources": ["Test source"],
+        "session_id": "test-session-123"
+    }
+
+@pytest.fixture
+def expected_course_stats():
+    """Expected course statistics response"""
+    return {
+        "total_courses": 2,
+        "course_titles": ["Python Programming Basics", "Advanced Python"]
+    }
+
+@pytest.fixture
+def event_loop():
+    """Create an event loop for async tests"""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
