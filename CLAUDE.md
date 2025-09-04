@@ -8,6 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Start the application**: `./run.sh` (or manually: `cd backend && uv run uvicorn app:app --reload --port 8000`)
 - **Install dependencies**: `uv sync`
 - **Environment setup**: Copy `.env.example` to `.env` and add your `ANTHROPIC_API_KEY`
+- **Code quality checks**: `uv run python scripts/format.py` - runs Black, isort, flake8, and mypy
+- **Format code**: `uv run black backend/ main.py` - automatic code formatting
+- **Sort imports**: `uv run isort backend/ main.py` - organize import statements
 
 ### Access Points
 - Web Interface: `http://localhost:8000`
